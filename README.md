@@ -24,7 +24,9 @@ the Docker API is never exposed over the network.
 
 - **Hosts:** register hosts from the UI or CLI, each with its own revocable token.
   Online/offline status, OS/arch, Docker version, CPU, memory, disk, uptime,
-  container counts.
+  container counts, and IPv4 addresses: private ones from the host's network
+  interfaces (Docker/VM bridges skipped) and the public one the controller sees
+  the agent connect from (no third-party IP lookup). Click an address to copy it.
 - **Containers:** list with image, status, ports, compose project, CPU and
   memory. Start, stop, restart, remove (volumes are never removed; running
   containers need an explicit "stop and remove").

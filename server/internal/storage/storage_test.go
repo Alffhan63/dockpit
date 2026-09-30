@@ -2,8 +2,10 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -42,16 +44,17 @@ func TestHosts(t *testing.T) {
 		t.Errorf("unknown token: err = %v", err)
 	}
 
-	info := protocol.HostInfo{OS: "darwin", Arch: "arm64", DockerVersion: "29.1.3", AgentVersion: "dev"}
+	info := protocol.HostInfo{OS: "darwin", Arch: "arm64", DockerVersion: "29.1.3", AgentVersion: "dev",
+		Addresses: []protocol.Address{{Interface: "en0", IP: "192.168.1.20", Scope: "private"}}}
 	seen := time.Unix(1700000000, 0)
-	if err := s.RecordHello(ctx, "mac-mini", info, seen); err != nil {
+	if err := s.RecordHello(ctx, "mac-mini", info, "203.0.113.7", seen); err != nil {
 		t.Fatal(err)
 	}
 	h, err := s.GetHost(ctx, "mac-mini")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if h.Name != "Mac mini" || h.Info != info || h.LastSeenAt == nil || !h.LastSeenAt.Equal(seen) {
+	if h.Name != "Mac mini" || !reflect.DeepEqual(h.Info, info) || h.PublicIP != "203.0.113.7" || h.LastSeenAt == nil || !h.LastSeenAt.Equal(seen) {
 		t.Errorf("host = %+v", h)
 	}
 
@@ -106,5 +109,36 @@ func TestAdminPassword(t *testing.T) {
 	s.SetAdminPasswordHash(ctx, "b")
 	if h, _ := s.AdminPasswordHash(ctx); h != "b" {
 		t.Errorf("hash = %q, want b", h)
+	}
+}
+
+// A database created before public_ip/addresses existed is migrated in place.
+func TestMigrateOldSchema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`CREATE TABLE hosts (id TEXT PRIMARY KEY, name TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
+		created_at INTEGER NOT NULL, last_seen_at INTEGER, os TEXT NOT NULL DEFAULT '', arch TEXT NOT NULL DEFAULT '',
+		docker_version TEXT NOT NULL DEFAULT '', agent_version TEXT NOT NULL DEFAULT '');
+		INSERT INTO hosts (id, name, token_hash, created_at) VALUES ('old', 'Old', 'h', 1);`)
+	db.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	h, err := s.GetHost(context.Background(), "old")
+	if err != nil || h.PublicIP != "" || h.Info.Addresses != nil {
+		t.Fatalf("migrated host = %+v, %v", h, err)
+	}
+	// Opening again is a no-op.
+	s.Close()
+	if s, err = Open(path); err != nil {
+		t.Fatal(err)
 	}
 }

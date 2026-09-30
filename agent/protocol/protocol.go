@@ -71,11 +71,21 @@ type Message struct {
 
 // HostInfo describes the machine an agent runs on.
 type HostInfo struct {
-	Name          string `json:"name"`
-	OS            string `json:"os"`
-	Arch          string `json:"arch"`
-	DockerVersion string `json:"docker_version"`
-	AgentVersion  string `json:"agent_version"`
+	Name          string    `json:"name"`
+	OS            string    `json:"os"`
+	Arch          string    `json:"arch"`
+	DockerVersion string    `json:"docker_version"`
+	AgentVersion  string    `json:"agent_version"`
+	Addresses     []Address `json:"addresses,omitempty"`
+}
+
+// Address is an IPv4 address of one of the host's network interfaces.
+type Address struct {
+	Interface string `json:"interface"`
+	IP        string `json:"ip"`
+	// Scope is "private" (RFC 1918, or 100.64/10 as used by Tailscale and
+	// carrier NAT) or "public".
+	Scope string `json:"scope"`
 }
 
 // ListContainersParams are the params for MethodListContainers.
@@ -225,8 +235,9 @@ type Container struct {
 
 // HostStatus is the result of MethodHostStatus.
 type HostStatus struct {
-	Metrics HostMetrics `json:"metrics"`
-	Docker  DockerInfo  `json:"docker"`
+	Metrics   HostMetrics `json:"metrics"`
+	Docker    DockerInfo  `json:"docker"`
+	Addresses []Address   `json:"addresses"`
 }
 
 // HostMetrics are OS-level metrics of the machine the agent runs on.

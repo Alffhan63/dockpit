@@ -8,6 +8,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -60,7 +61,43 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
+	if err := migrate(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
 	return &Store{db: db}, nil
+}
+
+// columns added after the first release; ALTER TABLE only when missing.
+var hostColumnsAdded = map[string]string{
+	"public_ip": "TEXT NOT NULL DEFAULT ''",
+	"addresses": "TEXT NOT NULL DEFAULT '[]'",
+}
+
+func migrate(db *sql.DB) error {
+	rows, err := db.Query(`SELECT name FROM pragma_table_info('hosts')`)
+	if err != nil {
+		return err
+	}
+	have := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return err
+		}
+		have[name] = true
+	}
+	rows.Close()
+	for col, def := range hostColumnsAdded {
+		if have[col] {
+			continue
+		}
+		if _, err := db.Exec(`ALTER TABLE hosts ADD COLUMN ` + col + ` ` + def); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Close closes the database.
@@ -74,15 +111,19 @@ type Host struct {
 	LastSeenAt *time.Time
 	// Info is the last hello the agent sent. Name is unused.
 	Info protocol.HostInfo
+	// PublicIP is where the agent last connected from, as seen by the
+	// controller (behind NAT: the public address of the network).
+	PublicIP string
 }
 
-const hostColumns = `id, name, created_at, last_seen_at, os, arch, docker_version, agent_version`
+const hostColumns = `id, name, created_at, last_seen_at, os, arch, docker_version, agent_version, public_ip, addresses`
 
 func scanHost(row interface{ Scan(...any) error }) (Host, error) {
 	var h Host
 	var created int64
 	var lastSeen sql.NullInt64
-	err := row.Scan(&h.ID, &h.Name, &created, &lastSeen, &h.Info.OS, &h.Info.Arch, &h.Info.DockerVersion, &h.Info.AgentVersion)
+	var addresses string
+	err := row.Scan(&h.ID, &h.Name, &created, &lastSeen, &h.Info.OS, &h.Info.Arch, &h.Info.DockerVersion, &h.Info.AgentVersion, &h.PublicIP, &addresses)
 	if errors.Is(err, sql.ErrNoRows) {
 		return h, ErrNotFound
 	}
@@ -90,6 +131,11 @@ func scanHost(row interface{ Scan(...any) error }) (Host, error) {
 		return h, err
 	}
 	h.CreatedAt = time.Unix(created, 0)
+	if addresses != "" && addresses != "[]" {
+		if err := json.Unmarshal([]byte(addresses), &h.Info.Addresses); err != nil {
+			return h, fmt.Errorf("host %s addresses: %w", h.ID, err)
+		}
+	}
 	if lastSeen.Valid {
 		t := time.Unix(lastSeen.Int64, 0)
 		h.LastSeenAt = &t
@@ -154,11 +200,19 @@ func (s *Store) SetHostToken(ctx context.Context, id, tokenHash string) error {
 	return expectOne(s.db.ExecContext(ctx, `UPDATE hosts SET token_hash = ? WHERE id = ?`, tokenHash, id))
 }
 
-// RecordHello stores what a connecting agent reported.
-func (s *Store) RecordHello(ctx context.Context, id string, info protocol.HostInfo, at time.Time) error {
+// RecordHello stores what a connecting agent reported, and the address it
+// connected from.
+func (s *Store) RecordHello(ctx context.Context, id string, info protocol.HostInfo, remoteIP string, at time.Time) error {
+	addresses, err := json.Marshal(info.Addresses)
+	if err != nil {
+		return err
+	}
+	if info.Addresses == nil {
+		addresses = []byte("[]")
+	}
 	return expectOne(s.db.ExecContext(ctx,
-		`UPDATE hosts SET last_seen_at = ?, os = ?, arch = ?, docker_version = ?, agent_version = ? WHERE id = ?`,
-		at.Unix(), info.OS, info.Arch, info.DockerVersion, info.AgentVersion, id))
+		`UPDATE hosts SET last_seen_at = ?, os = ?, arch = ?, docker_version = ?, agent_version = ?, public_ip = ?, addresses = ? WHERE id = ?`,
+		at.Unix(), info.OS, info.Arch, info.DockerVersion, info.AgentVersion, remoteIP, string(addresses), id))
 }
 
 // TouchHost updates a host's last-seen time.

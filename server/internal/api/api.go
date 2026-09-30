@@ -106,9 +106,10 @@ func (s *Server) agentConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	conn.SetReadLimit(agentReadLimit)
 
-	s.logger.Info("agent connected", "host", hostID, "remote", auth.ClientIP(r))
+	remote := auth.ClientIP(r)
+	s.logger.Info("agent connected", "host", hostID, "remote", remote)
 	err = s.registry.Serve(r.Context(), hostID, conn, func(info protocol.HostInfo) {
-		if err := s.store.RecordHello(context.Background(), hostID, info, time.Now()); err != nil {
+		if err := s.store.RecordHello(context.Background(), hostID, info, remote, time.Now()); err != nil {
 			s.logger.Warn("record hello", "host", hostID, "err", err)
 		}
 	})

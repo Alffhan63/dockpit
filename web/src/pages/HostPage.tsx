@@ -36,6 +36,7 @@ import { PullToRefresh } from '@/components/PullToRefresh'
 import { HostStatusBadge } from '@/components/StatusBadge'
 import { VolumeList } from '@/components/VolumeList'
 import { HistoryCard } from '@/components/HistoryCard'
+import { IpList } from '@/components/IpList'
 import { usePoll } from '@/hooks/usePoll'
 import { HOST_TABS, href, type HostTab } from '@/hooks/useRoute'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -159,6 +160,9 @@ export function HostPage({ hostId, tab }: { hostId: string; tab: HostTab }) {
                 {h.info.agent_version && ` · agent ${h.info.agent_version}`}
                 {!h.online && h.last_seen_at && ` · last seen ${timeAgo(h.last_seen_at)}`}
               </p>
+            )}
+            {h && (
+              <IpList className="pt-1" publicIP={h.public_ip} addresses={status.data?.addresses ?? h.info.addresses} />
             )}
           </div>
           <DropdownMenu>

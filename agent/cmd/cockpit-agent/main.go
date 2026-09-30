@@ -18,6 +18,7 @@ import (
 
 	"dockpit/agent/internal/docker"
 	"dockpit/agent/internal/metrics"
+	"dockpit/agent/internal/netinfo"
 	"dockpit/agent/internal/rpc"
 	"dockpit/agent/internal/transport"
 	"dockpit/agent/protocol"
@@ -99,6 +100,7 @@ func run(logger *slog.Logger) error {
 				Arch:          runtime.GOARCH,
 				DockerVersion: dv,
 				AgentVersion:  version,
+				Addresses:     netinfo.Addresses(),
 			}
 		},
 		Handle: (&rpc.Handler{Docker: dc, Sampler: sampler}).Handle,

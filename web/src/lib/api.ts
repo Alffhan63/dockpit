@@ -1,10 +1,17 @@
 // Types mirror dockpit/agent/protocol and the controller API.
 
+export interface Address {
+  interface: string
+  ip: string
+  scope: 'private' | 'public'
+}
+
 export interface HostInfo {
   os: string
   arch: string
   docker_version: string
   agent_version: string
+  addresses?: Address[]
 }
 
 export interface Host {
@@ -15,6 +22,8 @@ export interface Host {
   last_seen_at?: string
   connected_at?: string
   info: HostInfo
+  // Where the agent connects from, as the controller sees it.
+  public_ip?: string
 }
 
 export interface HostMetrics {
@@ -44,6 +53,7 @@ export interface DockerInfo {
 export interface HostStatus {
   metrics: HostMetrics
   docker: DockerInfo
+  addresses?: Address[]
 }
 
 export interface Port {

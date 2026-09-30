@@ -10,6 +10,7 @@ import (
 
 	"dockpit/agent/internal/docker"
 	"dockpit/agent/internal/metrics"
+	"dockpit/agent/internal/netinfo"
 	"dockpit/agent/internal/transport"
 	"dockpit/agent/protocol"
 )
@@ -65,7 +66,8 @@ func (h *Handler) Handle(ctx context.Context, req transport.Request) (any, error
 		if err != nil {
 			return nil, err
 		}
-		return protocol.HostStatus{Metrics: h.Sampler.HostMetrics(), Docker: info}, nil
+		// Addresses are read on every call: DHCP or a VPN can change them.
+		return protocol.HostStatus{Metrics: h.Sampler.HostMetrics(), Docker: info, Addresses: netinfo.Addresses()}, nil
 
 	case protocol.MethodStartContainer, protocol.MethodStopContainer,
 		protocol.MethodRestartContainer, protocol.MethodRemoveContainer:

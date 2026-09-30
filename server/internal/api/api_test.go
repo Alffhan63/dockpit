@@ -684,3 +684,34 @@ func TestHistoryAndVolumes(t *testing.T) {
 		t.Errorf("bad name: %d, want 400", status)
 	}
 }
+
+// Behind a local nginx the agent's public address arrives in X-Real-IP; it is
+// stored with the host, together with the interface addresses it reports.
+func TestAgentAddresses(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	conn, _, err := websocket.Dial(ctx, e.srv.URL+protocol.ConnectPath, &websocket.DialOptions{
+		HTTPHeader: http.Header{"Authorization": {"Bearer " + e.token}, "X-Real-IP": {"203.0.113.7"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.CloseNow()
+	wsjson.Write(ctx, conn, protocol.Message{Type: protocol.TypeHello, Hello: &protocol.HostInfo{
+		OS: "linux", Addresses: []protocol.Address{{Interface: "eth0", IP: "10.0.0.5", Scope: "private"}},
+	}})
+	e.waitOnline("local", true)
+
+	check := func(when string) {
+		_, body := e.do("GET", "/api/v1/hosts/local", nil)
+		var h hostView
+		json.Unmarshal(mustJSON(body), &h)
+		if h.PublicIP != "203.0.113.7" || len(h.Info.Addresses) != 1 || h.Info.Addresses[0].IP != "10.0.0.5" {
+			t.Errorf("%s: host = %+v", when, h)
+		}
+	}
+	check("online")
+	conn.Close(websocket.StatusNormalClosure, "")
+	e.waitOnline("local", false)
+	check("offline (from the database)")
+}

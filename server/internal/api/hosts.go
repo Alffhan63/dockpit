@@ -20,10 +20,13 @@ type hostView struct {
 	LastSeenAt  *time.Time        `json:"last_seen_at,omitempty"`
 	ConnectedAt *time.Time        `json:"connected_at,omitempty"`
 	Info        protocol.HostInfo `json:"info"`
+	// PublicIP is the address the agent connects from, as the controller
+	// sees it. It may be private when agent and controller share a network.
+	PublicIP string `json:"public_ip,omitempty"`
 }
 
 func (s *Server) view(h storage.Host, live map[string]hosts.Host) hostView {
-	v := hostView{ID: h.ID, Name: h.Name, CreatedAt: h.CreatedAt, LastSeenAt: h.LastSeenAt, Info: h.Info}
+	v := hostView{ID: h.ID, Name: h.Name, CreatedAt: h.CreatedAt, LastSeenAt: h.LastSeenAt, Info: h.Info, PublicIP: h.PublicIP}
 	v.Info.Name = ""
 	if l, ok := live[h.ID]; ok {
 		v.Online = true

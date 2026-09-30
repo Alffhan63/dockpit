@@ -5,6 +5,7 @@ import { usePoll } from '@/hooks/usePoll'
 import { href } from '@/hooks/useRoute'
 import { api, type Host } from '@/lib/api'
 import { formatBytes, formatUptime, osLabel, percent, timeAgo } from '@/lib/format'
+import { IpList } from './IpList'
 import { MetricBar } from './MetricBar'
 import { HostStatusBadge } from './StatusBadge'
 
@@ -25,6 +26,12 @@ export function HostCard({ host }: { host: Host }) {
             {host.info.os ? `${osLabel(host.info.os)} / ${host.info.arch}` : 'Agent never connected'}
             {host.info.docker_version && ` · Docker ${host.info.docker_version}`}
           </CardDescription>
+          <IpList
+            className="pt-1"
+            publicIP={host.public_ip}
+            addresses={status.data?.addresses ?? host.info.addresses}
+            limit={2}
+          />
         </CardHeader>
         <CardContent className="space-y-3">
           {!host.online ? (
