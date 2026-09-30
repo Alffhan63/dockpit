@@ -1,15 +1,9 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { Container, Download, LogOut, Monitor, Moon, Sun } from 'lucide-react'
+import { Container, Download, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Separator } from '@/components/ui/separator'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
-import { useTheme } from '@/hooks/useTheme'
+import { ThemeToggle } from './ThemeToggle'
 import { cn } from '@/lib/utils'
 
 // AppShell fills the viewport: a fixed header and a scrolling <main>. In the
@@ -27,7 +21,6 @@ export function AppShell({
   fill?: boolean
   onLogout: () => void
 }) {
-  const { theme, resolved, setTheme } = useTheme()
   const install = useInstallPrompt()
   const main = useRef<HTMLElement>(null)
 
@@ -46,34 +39,24 @@ export function AppShell({
             </span>
             <span className="text-primary">Docker Cockpit</span>
           </a>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1.5">
             {install && (
               <Button variant="outline" size="sm" onClick={install}>
                 <Download /> <span className="hidden sm:inline">Install app</span>
               </Button>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Menu">
-                  {resolved === 'dark' ? <Moon /> : <Sun />}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme('light')} data-active={theme === 'light'}>
-                  <Sun /> Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('dark')} data-active={theme === 'dark'}>
-                  <Moon /> Dark
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('system')} data-active={theme === 'system'}>
-                  <Monitor /> System
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={onLogout}>
-                  <LogOut /> Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ThemeToggle />
+            <Separator orientation="vertical" className="mx-1 h-5" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="active:not-aria-[haspopup]:translate-y-0"
+              onClick={onLogout}
+              aria-label="Log out"
+              title="Log out"
+            >
+              <LogOut /> <span className="hidden sm:inline">Log out</span>
+            </Button>
           </div>
         </div>
       </header>

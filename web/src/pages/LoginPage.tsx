@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { api } from '@/lib/api'
 
 export function LoginPage({ passwordSet, onLogin }: { passwordSet: boolean; onLogin: () => void }) {
@@ -29,7 +30,10 @@ export function LoginPage({ passwordSet, onLogin }: { passwordSet: boolean; onLo
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
+    <div className="relative flex min-h-dvh items-center justify-center bg-background p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
+      <div className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-4">
+        <ThemeToggle />
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
           <img src="/icon-192.png" alt="" className="mx-auto mb-2 size-14 rounded-2xl" />
