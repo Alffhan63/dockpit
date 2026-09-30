@@ -1,0 +1,19 @@
+bin/
+web/node_modules/
+web/dist/
+*.env
+.env*
+.DS_Store
+data/
+*.db
+server/internal/webui/dist/*
+!server/internal/webui/dist/.gitkeep
+
+# SQLite side files, keys and agent secrets must never be committed.
+*.db-wal
+*.db-shm
+*.sqlite*
+*.pem
+*.key
+*.p12
+cockpit-agent.env

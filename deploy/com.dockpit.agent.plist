@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS agent (Docker Desktop runs per user, so this is a user LaunchAgent).
+  1. cp cockpit-agent-darwin-arm64 ~/bin/cockpit-agent
+  2. Edit the token and URL below, then:
+       cp com.dockpit.agent.plist ~/Library/LaunchAgents/
+       chmod 600 ~/Library/LaunchAgents/com.dockpit.agent.plist
+       launchctl load ~/Library/LaunchAgents/com.dockpit.agent.plist
+  Logs: /tmp/cockpit-agent.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.dockpit.agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/YOU/bin/cockpit-agent</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>COCKPIT_CONTROLLER_URL</key>
+    <string>https://cockpit.example.com</string>
+    <key>COCKPIT_TOKEN</key>
+    <string>PASTE_TOKEN_HERE</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/cockpit-agent.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/cockpit-agent.log</string>
+</dict>
+</plist>

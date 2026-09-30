@@ -1,0 +1,28 @@
+# /etc/systemd/system/cockpit-server.service
+[Unit]
+Description=Docker Cockpit controller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=cockpit
+Group=cockpit
+Environment=COCKPIT_DB=/var/lib/cockpit/cockpit.db
+Environment=COCKPIT_LISTEN=127.0.0.1:8080
+ExecStart=/usr/local/bin/cockpit-server
+Restart=on-failure
+RestartSec=5
+
+# The controller needs no Docker access and no privileges.
+StateDirectory=cockpit
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

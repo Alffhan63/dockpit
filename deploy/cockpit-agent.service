@@ -1,0 +1,28 @@
+# /etc/systemd/system/cockpit-agent.service
+#
+# /etc/cockpit-agent.env (chmod 600, owned by root):
+#   COCKPIT_CONTROLLER_URL=https://cockpit.example.com
+#   COCKPIT_TOKEN=<token from "Add host">
+[Unit]
+Description=Docker Cockpit agent
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=cockpit-agent
+# Membership of the docker group grants Docker socket access, which is
+# root-equivalent. The agent itself only calls a fixed set of Docker APIs.
+SupplementaryGroups=docker
+EnvironmentFile=/etc/cockpit-agent.env
+ExecStart=/usr/local/bin/cockpit-agent
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+# "full" keeps /run writable for the Docker socket.
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

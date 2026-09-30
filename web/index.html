@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#F6F8FA" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Cockpit" />
+    <title>Docker Cockpit</title>
+    <script src="/theme-init.js"></script>
+    <style>
+      /* Launch screen: plain CSS so it paints before the bundle loads. Colors
+         match --background in index.css. Inline styles are allowed by the CSP;
+         inline scripts are not, hence theme-init.js. */
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f6f8fa;
+        transition: opacity 0.25s ease;
+      }
+      :root.dark #app-splash {
+        background: #0b0f14;
+      }
+      #app-splash img {
+        width: 72px;
+        height: 72px;
+        animation: app-splash-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes app-splash-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.85; transform: scale(0.94); }
+      }
+      #app-splash.app-splash-hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app-splash"><img src="/icon.svg" alt="" /></div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
