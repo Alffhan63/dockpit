@@ -135,6 +135,7 @@ func serve(logger *slog.Logger, store *storage.Store) error {
 
 	srv := api.New(store, registry, logger, web)
 	srv.SetMonitor(mon)
+	srv.SetVersion(version)
 	httpServer := &http.Server{
 		Addr:              listen,
 		Handler:           srv.Handler(),

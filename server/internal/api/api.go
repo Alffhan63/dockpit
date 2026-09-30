@@ -29,6 +29,7 @@ type Server struct {
 	web      http.Handler
 	logins   *auth.Limiter
 	mon      *monitor.Monitor // optional
+	version  string
 }
 
 // New returns a Server. web serves the built UI and may be nil.
@@ -41,6 +42,9 @@ func New(store *storage.Store, registry *hosts.Registry, logger *slog.Logger, we
 		logins:   auth.NewLimiter(5, 15*time.Minute),
 	}
 }
+
+// SetVersion sets the controller version shown next to agent versions.
+func (s *Server) SetVersion(v string) { s.version = v }
 
 // SetMonitor attaches the background monitor that feeds the overview,
 // sparklines and alerts.

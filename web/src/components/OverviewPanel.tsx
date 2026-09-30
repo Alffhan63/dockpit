@@ -13,7 +13,7 @@ const kindLabel: Record<Problem['kind'], string> = {
   oom: 'Out of memory',
 }
 
-interface Issue {
+export interface Issue {
   key: string
   host: HostOverview
   title: string
@@ -24,7 +24,7 @@ interface Issue {
 }
 
 // issuesOf turns the per-host summaries into one list, worst first.
-function issuesOf(hosts: HostOverview[]): Issue[] {
+export function issuesOf(hosts: HostOverview[]): Issue[] {
   const out: Issue[] = []
   for (const h of hosts) {
     if (!h.online) {

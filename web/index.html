@@ -21,8 +21,10 @@
         inset: 0;
         z-index: 9999;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 14px;
         background: #f6f8fa;
         transition: opacity 0.25s ease;
       }
@@ -33,6 +35,16 @@
         width: 72px;
         height: 72px;
         animation: app-splash-pulse 1.4s ease-in-out infinite;
+      }
+      #app-splash span {
+        font-family: system-ui, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: #6b7785;
+      }
+      :root.dark #app-splash span {
+        color: #8b98a8;
       }
       @keyframes app-splash-pulse {
         0%, 100% { opacity: 1; transform: scale(1); }
@@ -45,7 +57,10 @@
     </style>
   </head>
   <body>
-    <div id="app-splash"><img src="/icon.svg" alt="" /></div>
+    <div id="app-splash">
+      <img src="/icon.svg" alt="Docker Cockpit" />
+      <span>by Funclawd</span>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

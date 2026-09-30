@@ -23,10 +23,12 @@ type hostView struct {
 	// PublicIP is the address the agent connects from, as the controller
 	// sees it. It may be private when agent and controller share a network.
 	PublicIP string `json:"public_ip,omitempty"`
+	// ControllerVersion lets the dashboard flag agents that are behind.
+	ControllerVersion string `json:"controller_version,omitempty"`
 }
 
 func (s *Server) view(h storage.Host, live map[string]hosts.Host) hostView {
-	v := hostView{ID: h.ID, Name: h.Name, CreatedAt: h.CreatedAt, LastSeenAt: h.LastSeenAt, Info: h.Info, PublicIP: h.PublicIP}
+	v := hostView{ID: h.ID, Name: h.Name, CreatedAt: h.CreatedAt, LastSeenAt: h.LastSeenAt, Info: h.Info, PublicIP: h.PublicIP, ControllerVersion: s.version}
 	v.Info.Name = ""
 	if l, ok := live[h.ID]; ok {
 		v.Online = true

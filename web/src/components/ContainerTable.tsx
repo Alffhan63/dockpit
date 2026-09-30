@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { EllipsisVertical, Info, Loader2, Play, RotateCw, ScrollText, Square, Trash2 } from 'lucide-react'
+import { EllipsisVertical, Info, Loader2, Play, Rows3, Rows4, RotateCw, ScrollText, Square, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useLocalPref } from '@/hooks/useLocalPref'
 import { usePoll } from '@/hooks/usePoll'
 import { href } from '@/hooks/useRoute'
 import { useSelection } from '@/hooks/useSelection'
@@ -81,6 +82,7 @@ export function ContainerTable({
   const [removing, setRemoving] = useState<Container>()
   const [bulkOpen, setBulkOpen] = useState(false)
   const [inspecting, setInspecting] = useState<Container>()
+  const [compact, setCompact] = useLocalPref('cockpit:compact-containers', false)
   const sparks = usePoll(() => api.sparks(hostId), 30_000, hostId)
   const sel = useSelection(containers.map((c) => c.id))
   const chosen = containers.filter((c) => sel.selected.has(c.id))
@@ -158,12 +160,17 @@ export function ContainerTable({
           </Button>
         }
       />
+      <div className="flex justify-end">
+        <Button variant="ghost" size="sm" aria-pressed={compact} onClick={() => setCompact((v) => !v)}>
+          {compact ? <Rows3 /> : <Rows4 />} {compact ? 'Comfortable' : 'Compact'}
+        </Button>
+      </div>
       <div className="hidden md:block">
-        <WideTable hostId={hostId} containers={containers} actions={actions} onSelectAll={sel.set} />
+        <WideTable hostId={hostId} containers={containers} actions={actions} onSelectAll={sel.set} compact={compact} />
       </div>
       <ul className="-mx-1 divide-y md:hidden">
         {containers.map((c) => (
-          <ContainerCard key={c.id} hostId={hostId} c={c} actions={actions} />
+          <ContainerCard key={c.id} hostId={hostId} c={c} actions={actions} compact={compact} />
         ))}
       </ul>
       <ContainerDetailDialog hostId={hostId} container={inspecting} onOpenChange={(o) => !o && setInspecting(undefined)} />
@@ -191,11 +198,13 @@ function WideTable({
   containers,
   actions,
   onSelectAll,
+  compact,
 }: {
   hostId: string
   containers: Container[]
   actions: Actions
   onSelectAll: (ids: string[]) => void
+  compact: boolean
 }) {
   const all = containers.length > 0 && actions.selected.size === containers.length
   const some = actions.selected.size > 0 && !all
@@ -227,7 +236,7 @@ function WideTable({
             <TableRow
               key={c.id}
               data-state={actions.selected.has(c.id) ? 'selected' : undefined}
-              className={running ? undefined : 'text-muted-foreground'}
+              className={cn(!running && 'text-muted-foreground', compact && '[&>td]:py-1')}
             >
               <TableCell>
                 <Checkbox
@@ -251,7 +260,7 @@ function WideTable({
                   )}
                 </div>
                 <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-                  {c.id.slice(0, 12)}
+                  {!compact && c.id.slice(0, 12)}
                   <Restarts c={c} />
                 </div>
               </TableCell>
@@ -264,10 +273,12 @@ function WideTable({
                     <StatusBadge tone={containerTone(c.state)}>{c.state}</StatusBadge>
                     <HealthBadge health={c.health} />
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {c.status}
-                    {exitInfo(c) && <span className="text-destructive"> · {exitInfo(c)}</span>}
-                  </span>
+                  {(!compact || exitInfo(c)) && (
+                    <span className="text-xs text-muted-foreground">
+                      {!compact && c.status}
+                      {exitInfo(c) && <span className="text-destructive"> · {exitInfo(c)}</span>}
+                    </span>
+                  )}
                 </div>
               </TableCell>
               <TableCell className="hidden font-mono text-xs lg:table-cell">
@@ -298,10 +309,10 @@ function WideTable({
   )
 }
 
-function ContainerCard({ hostId, c, actions }: { hostId: string; c: Container; actions: Actions }) {
+function ContainerCard({ hostId, c, actions, compact }: { hostId: string; c: Container; actions: Actions; compact: boolean }) {
   const running = c.state === 'running'
   return (
-    <li className={cn('flex items-start gap-3 px-1 py-3', actions.selected.has(c.id) && 'bg-primary/5')}>
+    <li className={cn('flex items-start gap-3 px-1', compact ? 'py-1.5' : 'py-3', actions.selected.has(c.id) && 'bg-primary/5')}>
       <Checkbox
         className="mt-1"
         aria-label={`Select ${c.name}`}
@@ -315,7 +326,7 @@ function ContainerCard({ hostId, c, actions }: { hostId: string; c: Container; a
           <HealthBadge health={c.health} />
           <Restarts c={c} />
         </div>
-        <div className="truncate font-mono text-xs text-muted-foreground">{c.image}</div>
+        {!compact && <div className="truncate font-mono text-xs text-muted-foreground">{c.image}</div>}
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           {running ? (
             <>

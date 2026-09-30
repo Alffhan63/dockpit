@@ -43,6 +43,7 @@ import { useSwipe } from '@/hooks/useSwipe'
 import { api, ApiError } from '@/lib/api'
 import { formatBytes, formatPercent, formatUptime, osLabel, percent, timeAgo } from '@/lib/format'
 import { tap } from '@/lib/haptics'
+import { isBehind } from '@/lib/version'
 import { cn } from '@/lib/utils'
 
 export function HostPage({ hostId, tab }: { hostId: string; tab: HostTab }) {
@@ -158,6 +159,8 @@ export function HostPage({ hostId, tab }: { hostId: string; tab: HostTab }) {
                 {h.info.docker_version && ` · Docker ${h.info.docker_version}`}
                 {d?.operating_system && ` (${d.operating_system})`}
                 {h.info.agent_version && ` · agent ${h.info.agent_version}`}
+                {isBehind(h.info.agent_version, h.controller_version) &&
+                  ` (controller is ${h.controller_version}: re-run the installer to update)`}
                 {!h.online && h.last_seen_at && ` · last seen ${timeAgo(h.last_seen_at)}`}
               </p>
             )}

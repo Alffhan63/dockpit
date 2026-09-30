@@ -24,6 +24,7 @@ export interface Host {
   info: HostInfo
   // Where the agent connects from, as the controller sees it.
   public_ip?: string
+  controller_version?: string
 }
 
 export interface HostMetrics {

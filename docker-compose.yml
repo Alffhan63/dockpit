@@ -1,6 +1,9 @@
 services:
   dockpit:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}   # shown in the dashboard, e.g. VERSION=v0.2.0 docker compose up -d --build
     image: dockpit-server
     container_name: dockpit
     restart: unless-stopped

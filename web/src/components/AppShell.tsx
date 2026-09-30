@@ -3,6 +3,7 @@ import { Container, Download, LogOut, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useInstallPrompt } from '@/hooks/useInstallPrompt'
+import { AlertsBell } from './AlertsBell'
 import { ThemeToggle } from './ThemeToggle'
 import { cn } from '@/lib/utils'
 
@@ -30,7 +31,10 @@ export function AppShell({
   }, [routeKey])
 
   return (
-    <div className="flex h-dvh flex-col bg-background text-foreground">
+    // fixed + inset-0 follows the edges of what is actually visible. 100dvh can
+    // be taller than that on phones (browser toolbars, bottom bars), which cut
+    // off the end of the page.
+    <div className="fixed inset-0 flex flex-col bg-background text-foreground">
       <a
         href="#main"
         onClick={(e) => {
@@ -56,6 +60,7 @@ export function AppShell({
                 <Download /> <span className="hidden sm:inline">Install app</span>
               </Button>
             )}
+            <AlertsBell />
             <Button variant="ghost" size="sm" asChild>
               <a href="#/settings" aria-label="Settings" title="Settings">
                 <Settings />
@@ -87,7 +92,9 @@ export function AppShell({
           key={routeKey}
           className={cn(
             'mx-auto max-w-7xl p-4 duration-200 animate-in fade-in slide-in-from-bottom-1 md:p-6',
-            fill ? 'h-full' : 'min-h-full',
+            // Scrolling pages get extra room at the bottom on phones so the last
+            // card never sits under a gesture bar or floating browser toolbar.
+            fill ? 'h-full' : 'min-h-full max-md:pb-24',
           )}
         >
           {children}
