@@ -35,14 +35,16 @@ const (
 	// MethodContainerLogs streams []LogLine chunks until the log ends or the
 	// request is cancelled.
 	MethodContainerLogs = "containers.logs"
-	MethodHostStatus    = "host.status"
-	MethodListImages    = "images.list"
-	MethodRemoveImage   = "images.remove"
-	MethodDiskUsage     = "system.df"
-	MethodPrune         = "system.prune"
-	MethodHostHistory   = "host.history"
-	MethodListVolumes   = "volumes.list"
-	MethodRemoveVolume  = "volumes.remove"
+	// MethodInspectContainer returns a read-only ContainerDetail.
+	MethodInspectContainer = "containers.inspect"
+	MethodHostStatus       = "host.status"
+	MethodListImages       = "images.list"
+	MethodRemoveImage      = "images.remove"
+	MethodDiskUsage        = "system.df"
+	MethodPrune            = "system.prune"
+	MethodHostHistory      = "host.history"
+	MethodListVolumes      = "volumes.list"
+	MethodRemoveVolume     = "volumes.remove"
 )
 
 // Prune kinds for MethodPrune. Only low-risk cleanups exist: caches and
@@ -227,6 +229,15 @@ type Container struct {
 	// ComposeDir is the directory docker compose ran in, i.e. the project.
 	ComposeDir string `json:"compose_dir,omitempty"`
 
+	// Health is "", "starting", "healthy" or "unhealthy" ("" = no healthcheck).
+	Health       string `json:"health,omitempty"`
+	RestartCount int    `json:"restart_count,omitempty"`
+	// ExitCode is set for containers that are not running.
+	ExitCode  *int `json:"exit_code,omitempty"`
+	OOMKilled bool `json:"oom_killed,omitempty"`
+	// LogDriver is the Docker logging driver; only some can be read back.
+	LogDriver string `json:"log_driver,omitempty"`
+
 	// Resource usage of running containers, when sampled.
 	CPUPercent *float64 `json:"cpu_percent,omitempty"`
 	MemUsage   uint64   `json:"mem_usage,omitempty"`
@@ -273,4 +284,52 @@ type Port struct {
 	PrivatePort uint16 `json:"private_port"`
 	PublicPort  uint16 `json:"public_port,omitempty"`
 	Type        string `json:"type"`
+}
+
+// EnvVar is one environment variable of a container. Values that look like
+// secrets are replaced by the agent (Masked = true) and never leave the host.
+type EnvVar struct {
+	Key    string `json:"key"`
+	Value  string `json:"value"`
+	Masked bool   `json:"masked,omitempty"`
+}
+
+// Mount is a bind mount or volume of a container.
+type Mount struct {
+	Type        string `json:"type"` // bind, volume, tmpfs
+	Name        string `json:"name,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Destination string `json:"destination"`
+	ReadOnly    bool   `json:"read_only,omitempty"`
+}
+
+// ContainerNetwork is a network a container is attached to.
+type ContainerNetwork struct {
+	Name    string   `json:"name"`
+	IP      string   `json:"ip,omitempty"`
+	Aliases []string `json:"aliases,omitempty"`
+}
+
+// ContainerDetail is the result of MethodInspectContainer.
+type ContainerDetail struct {
+	ID            string             `json:"id"`
+	Name          string             `json:"name"`
+	Image         string             `json:"image"`
+	State         string             `json:"state"`
+	Command       string             `json:"command"`
+	StartedAt     string             `json:"started_at,omitempty"`
+	FinishedAt    string             `json:"finished_at,omitempty"`
+	ExitCode      int                `json:"exit_code"`
+	OOMKilled     bool               `json:"oom_killed,omitempty"`
+	Error         string             `json:"error,omitempty"`
+	RestartCount  int                `json:"restart_count"`
+	RestartPolicy string             `json:"restart_policy,omitempty"`
+	Health        string             `json:"health,omitempty"`
+	HealthOutput  string             `json:"health_output,omitempty"` // last healthcheck result
+	LogDriver     string             `json:"log_driver"`
+	MemLimit      int64              `json:"mem_limit,omitempty"`
+	CPUs          float64            `json:"cpus,omitempty"`
+	Env           []EnvVar           `json:"env"`
+	Mounts        []Mount            `json:"mounts"`
+	Networks      []ContainerNetwork `json:"networks"`
 }

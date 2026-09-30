@@ -15,6 +15,7 @@ import (
 	"dockpit/agent/protocol"
 	"dockpit/server/internal/auth"
 	"dockpit/server/internal/hosts"
+	"dockpit/server/internal/monitor"
 	"dockpit/server/internal/storage"
 )
 
@@ -27,6 +28,7 @@ type Server struct {
 	logger   *slog.Logger
 	web      http.Handler
 	logins   *auth.Limiter
+	mon      *monitor.Monitor // optional
 }
 
 // New returns a Server. web serves the built UI and may be nil.
@@ -37,6 +39,18 @@ func New(store *storage.Store, registry *hosts.Registry, logger *slog.Logger, we
 		logger:   logger,
 		web:      web,
 		logins:   auth.NewLimiter(5, 15*time.Minute),
+	}
+}
+
+// SetMonitor attaches the background monitor that feeds the overview,
+// sparklines and alerts.
+func (s *Server) SetMonitor(m *monitor.Monitor) { s.mon = m }
+
+// audit records an action taken from the dashboard.
+func (s *Server) audit(r *http.Request, action, hostID, target, detail string) {
+	e := storage.AuditEntry{Actor: auth.ClientIP(r), Action: action, HostID: hostID, Target: target, Detail: detail}
+	if err := s.store.AddAudit(context.WithoutCancel(r.Context()), e); err != nil {
+		s.logger.Warn("write audit log", "err", err)
 	}
 }
 
@@ -72,6 +86,20 @@ func (s *Server) Handler() http.Handler {
 	private("GET /api/v1/hosts/{id}/volumes", s.listVolumes)
 	private("DELETE /api/v1/hosts/{id}/volumes/{volume}", s.removeVolume)
 	private("POST /api/v1/hosts/{id}/prune/{kind}", s.prune)
+	private("GET /api/v1/hosts/{id}/containers/{container}/inspect", s.inspectContainer)
+	private("GET /api/v1/hosts/{id}/sparks", s.sparks)
+	private("GET /api/v1/hosts/{id}/metrics", s.hostMetrics)
+	private("GET /api/v1/overview", s.overview)
+	private("GET /api/v1/audit", s.listAudit)
+	private("GET /api/v1/settings/notifications", s.getNotifications)
+	private("PUT /api/v1/settings/notifications", s.putNotifications)
+	private("POST /api/v1/settings/notifications/test", s.testNotifications)
+	private("GET /api/v1/settings/prune", s.getPrune)
+	private("PUT /api/v1/settings/prune", s.putPrune)
+	private("GET /api/v1/auth/2fa", s.twoFAStatus)
+	private("POST /api/v1/auth/2fa/setup", s.twoFASetup)
+	private("POST /api/v1/auth/2fa/enable", s.twoFAEnable)
+	private("POST /api/v1/auth/2fa/disable", s.twoFADisable)
 
 	if s.web != nil {
 		mux.Handle("GET /", securityHeaders(s.web))

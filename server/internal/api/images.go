@@ -39,5 +39,6 @@ func (s *Server) removeImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logger.Info("image removed", "host", hostID, "image", id)
+	s.audit(r, "images.remove", hostID, id, "")
 	w.WriteHeader(http.StatusNoContent)
 }

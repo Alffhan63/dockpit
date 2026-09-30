@@ -39,3 +39,21 @@ export function containerTone(state: string): Tone {
       return 'gray'
   }
 }
+
+// HealthBadge shows a container's healthcheck result; nothing without one.
+export function HealthBadge({ health }: { health?: string }) {
+  switch (health) {
+    case 'healthy':
+      return <StatusBadge tone="green">healthy</StatusBadge>
+    case 'unhealthy':
+      return <StatusBadge tone="red">unhealthy</StatusBadge>
+    case 'starting':
+      return (
+        <StatusBadge tone="amber" pulse>
+          starting
+        </StatusBadge>
+      )
+    default:
+      return null
+  }
+}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -46,5 +47,6 @@ func (s *Server) prune(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logger.Info("pruned", "host", hostID, "kind", kind, "deleted", res.Deleted, "reclaimed", res.SpaceReclaimed)
+	s.audit(r, "system.prune", hostID, kind, fmt.Sprintf("deleted %d, reclaimed %d bytes", res.Deleted, res.SpaceReclaimed))
 	writeJSON(w, http.StatusOK, res)
 }

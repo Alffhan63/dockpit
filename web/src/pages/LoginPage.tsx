@@ -6,24 +6,36 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 
 export function LoginPage({ passwordSet, onLogin }: { passwordSet: boolean; onLogin: () => void }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
   const [show, setShow] = useState(false)
+  // Second step when two-factor authentication is on.
+  const [needCode, setNeedCode] = useState(false)
+  const [code, setCode] = useState('')
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(undefined)
     try {
-      await api.login(password)
+      await api.login(password, needCode ? code : undefined)
       onLogin()
     } catch (err) {
-      setError((err as Error).message)
-      setPassword('')
+      if (err instanceof ApiError && err.totpRequired) {
+        // First ask is not an error; a wrong code is.
+        if (needCode) setError(err.message)
+        setNeedCode(true)
+        setCode('')
+      } else {
+        setError((err as Error).message)
+        setPassword('')
+        setNeedCode(false)
+        setCode('')
+      }
     } finally {
       setBusy(false)
     }
@@ -51,6 +63,24 @@ export function LoginPage({ passwordSet, onLogin }: { passwordSet: boolean; onLo
             </Alert>
           ) : (
             <form onSubmit={submit} className="space-y-4">
+              {needCode ? (
+                <div className="space-y-2">
+                  <Label htmlFor="code">Authentication code</Label>
+                  <Input
+                    id="code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                    className="text-center font-mono text-lg tracking-[0.4em]"
+                    autoFocus
+                  />
+                  <p className="text-xs text-muted-foreground">Open your authenticator app and enter the 6-digit code.</p>
+                </div>
+              ) : (
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
@@ -75,10 +105,20 @@ export function LoginPage({ passwordSet, onLogin }: { passwordSet: boolean; onLo
                   </Button>
                 </div>
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" disabled={busy || !password}>
-                {busy ? 'Signing in…' : 'Sign in'}
+              )}
+              {error && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" className="w-full" disabled={busy || (needCode ? code.length !== 6 : !password)}>
+                {busy ? 'Signing in…' : needCode ? 'Verify' : 'Sign in'}
               </Button>
+              {needCode && (
+                <Button type="button" variant="ghost" className="w-full" onClick={() => { setNeedCode(false); setCode(''); setError(undefined) }}>
+                  Back
+                </Button>
+              )}
             </form>
           )}
         </CardContent>

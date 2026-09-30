@@ -1,9 +1,16 @@
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePoll } from '@/hooks/usePoll'
-import { api, type HistoryPoint } from '@/lib/api'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { api, type HistoryPoint, type MetricRange } from '@/lib/api'
 
-const WINDOW_S = 3 * 3600
+type Range = 'live' | MetricRange
+const RANGES: { value: Range; label: string; seconds: number; tickEvery: number }[] = [
+  { value: 'live', label: 'Last 3 hours', seconds: 3 * 3600, tickEvery: 3600 },
+  { value: '24h', label: 'Last 24 hours', seconds: 24 * 3600, tickEvery: 4 * 3600 },
+  { value: '7d', label: 'Last 7 days', seconds: 7 * 86400, tickEvery: 86400 },
+  { value: '30d', label: 'Last 30 days', seconds: 30 * 86400, tickEvery: 5 * 86400 },
+]
 const HEIGHT = 128
 const PAD = { top: 10, right: 44, bottom: 22, left: 34 }
 
@@ -20,30 +27,56 @@ const clock = (t: number, seconds = false) =>
     ...(seconds && { second: '2-digit' }),
     hour12: false,
   })
+const day = (t: number) => new Date(t * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 const pct = (v: number) => `${v < 10 ? v.toFixed(1) : v.toFixed(0)}%`
 
-// HistoryCard shows the last 3 hours of host CPU and memory as two small
+// HistoryCard shows host CPU and memory as two small
 // multiples on the same 0-100% scale with a shared crosshair. The readout
 // above the charts shows the latest values, or the hovered moment's.
 export function HistoryCard({ hostId }: { hostId: string }) {
-  const history = usePoll(() => api.history(hostId), 30_000, hostId)
-  const points = history.data?.points ?? []
-  const step = history.data?.step_seconds ?? 30
+  // The live view comes from the agent (30 s steps, kept in its memory). Longer
+  // ranges come from the controller, which stores one sample a minute.
+  const [range, setRange] = useState<Range>('live')
+  const cfg = RANGES.find((r) => r.value === range)!
+  const live = usePoll(() => api.history(hostId), 30_000, range === 'live' ? hostId : null)
+  const stored = usePoll(() => api.metrics(hostId, range as MetricRange), 60_000, range === 'live' ? null : `${hostId}/${range}`)
+  const history = range === 'live' ? live : stored
+  const points: HistoryPoint[] = useMemo(
+    () => (range === 'live' ? (live.data?.points ?? []) : (stored.data?.points ?? [])),
+    [range, live.data, stored.data],
+  )
+  const step = (range === 'live' ? live.data?.step_seconds : stored.data?.bucket_seconds) ?? 30
   const [hover, setHover] = useState<number | null>(null) // index into points
+  const long = cfg.seconds > 24 * 3600
 
   const end = useMemo(() => Math.max(Date.now() / 1000, points.at(-1)?.t ?? 0), [points])
-  const start = end - WINDOW_S
+  const start = end - cfg.seconds
   const shown = hover !== null ? points[hover] : points.at(-1)
-  const since = points[0] && points[0].t > start + 10 * 60 ? points[0].t : null
+  const since = points[0] && points[0].t > start + Math.max(10 * 60, cfg.seconds * 0.05) ? points[0].t : null
+  const stamp = (t: number, seconds = false) => (cfg.seconds > 24 * 3600 ? `${day(t)} ${clock(t)}` : clock(t, seconds))
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Last 3 hours</CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>{cfg.label}</CardTitle>
+          <Select value={range} onValueChange={(v) => { setHover(null); setRange(v as Range) }}>
+            <SelectTrigger size="sm" className="w-36" aria-label="Time range">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RANGES.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <CardDescription className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           {shown ? (
             <>
-              <span className="tabular-nums">{hover !== null ? clock(shown.t, true) : 'Now'}</span>
+              <span className="tabular-nums">{hover !== null ? stamp(shown.t, true) : 'Now'}</span>
               {SERIES.map((s) => (
                 <span key={s.key} className="flex items-center gap-1.5">
                   <span className="h-0.5 w-3 rounded-full" style={{ background: s.color }} />
@@ -51,12 +84,12 @@ export function HistoryCard({ hostId }: { hostId: string }) {
                   <span>{s.label}</span>
                 </span>
               ))}
-              {since && hover === null && <span>collecting since {clock(since)}</span>}
+              {since && hover === null && <span>collecting since {stamp(since)}</span>}
             </>
           ) : history.error ? (
             <span className="text-destructive">{history.error.message}</span>
           ) : (
-            <span>Collecting data… the first points appear within a minute.</span>
+            <span>{history.loading ? 'Loading…' : 'Collecting data… the first points appear within a minute.'}</span>
           )}
         </CardDescription>
       </CardHeader>
@@ -74,10 +107,13 @@ export function HistoryCard({ hostId }: { hostId: string }) {
               end={end}
               hover={hover}
               onHover={setHover}
+              windowLabel={cfg.label.toLowerCase()}
+              tickEvery={cfg.tickEvery}
+              long={long}
             />
           ))}
         </div>
-        <HistoryTable points={points} />
+        <HistoryTable points={points} label={cfg.label.toLowerCase()} stamp={stamp} every={Math.max(600, cfg.seconds / 18)} />
       </CardContent>
     </Card>
   )
@@ -107,7 +143,13 @@ function MiniChart({
   end,
   hover,
   onHover,
+  windowLabel,
+  tickEvery,
+  long,
 }: {
+  windowLabel: string
+  tickEvery: number
+  long: boolean
   label: string
   color: string
   value: (p: HistoryPoint) => number
@@ -149,9 +191,9 @@ function MiniChart({
 
   const ticks = useMemo(() => {
     const out: number[] = []
-    for (let t = Math.ceil(start / 3600) * 3600; t <= end; t += 3600) out.push(t)
+    for (let t = Math.ceil(start / tickEvery) * tickEvery; t <= end; t += tickEvery) out.push(t)
     return out
-  }, [start, end])
+  }, [start, end, tickEvery])
 
   const nearest = (clientX: number, rect: DOMRect) => {
     if (points.length === 0) return null
@@ -190,7 +232,7 @@ function MiniChart({
           width={width}
           height={HEIGHT}
           role="img"
-          aria-label={`${label} over the last 3 hours${last ? `, now ${pct(value(last))}` : ''}. Use arrow keys to step through values.`}
+          aria-label={`${label}, ${windowLabel}${last ? `, now ${pct(value(last))}` : ''}. Use arrow keys to step through values.`}
           tabIndex={0}
           className="touch-pan-y rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onPointerMove={onMove}
@@ -220,7 +262,7 @@ function MiniChart({
               textAnchor="middle"
               className="fill-muted-foreground text-[10px] tabular-nums"
             >
-              {clock(t)}
+              {long ? day(t) : clock(t)}
             </text>
           ))}
           <path d={area} fill={color} fillOpacity={0.1} />
@@ -258,21 +300,31 @@ function MiniChart({
 }
 
 // HistoryTable is the non-visual view of the charts, one row per 10 minutes.
-function HistoryTable({ points }: { points: HistoryPoint[] }) {
+function HistoryTable({
+  points,
+  label,
+  stamp,
+  every,
+}: {
+  points: HistoryPoint[]
+  label: string
+  stamp: (t: number) => string
+  every: number
+}) {
   const rows = useMemo(() => {
     const out: HistoryPoint[] = []
     let next = 0
     for (const p of points) {
       if (p.t >= next) {
         out.push(p)
-        next = p.t + 600
+        next = p.t + every
       }
     }
     return out
-  }, [points])
+  }, [points, every])
   return (
     <table className="sr-only">
-      <caption>Host CPU and memory, every 10 minutes over the last 3 hours</caption>
+      <caption>Host CPU and memory, {label}</caption>
       <thead>
         <tr>
           <th>Time</th>
@@ -283,7 +335,7 @@ function HistoryTable({ points }: { points: HistoryPoint[] }) {
       <tbody>
         {rows.map((p) => (
           <tr key={p.t}>
-            <td>{clock(p.t)}</td>
+            <td>{stamp(p.t)}</td>
             <td>{pct(p.cpu)}</td>
             <td>{pct(p.mem)}</td>
           </tr>

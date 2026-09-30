@@ -79,6 +79,15 @@ func (h *Handler) Handle(ctx context.Context, req transport.Request) (any, error
 		defer cancel()
 		return nil, h.containerAction(ctx, req.Method, p)
 
+	case protocol.MethodInspectContainer:
+		p, err := containerParams(req.Params)
+		if err != nil {
+			return nil, err
+		}
+		ctx, cancel := context.WithTimeout(ctx, unaryTimeout)
+		defer cancel()
+		return h.Docker.InspectContainer(ctx, p.ID)
+
 	case protocol.MethodListImages:
 		ctx, cancel := context.WithTimeout(ctx, unaryTimeout)
 		defer cancel()

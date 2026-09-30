@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FolderGit2, Loader2, Play, Square, Trash2 } from 'lucide-react'
+import { FolderGit2, Loader2, Play, ScrollText, Square, Trash2 } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -241,6 +241,11 @@ function ProjectCard({
             <Loader2 className="m-2 size-4 animate-spin text-muted-foreground" />
           ) : (
             <>
+              <Button variant="outline" size="sm" asChild>
+                <a href={href({ page: 'project-logs', hostId, project: p.name })}>
+                  <ScrollText /> Logs
+                </a>
+              </Button>
               {!all && (
                 <Button variant="outline" size="sm" onClick={onStart}>
                   <Play /> Start all

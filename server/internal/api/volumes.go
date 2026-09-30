@@ -59,5 +59,6 @@ func (s *Server) removeVolume(w http.ResponseWriter, r *http.Request) {
 	}
 	// Volume deletion loses data, so it is always logged.
 	s.logger.Warn("volume removed", "host", hostID, "volume", name, "remote", r.RemoteAddr)
+	s.audit(r, "volumes.remove", hostID, name, "")
 	w.WriteHeader(http.StatusNoContent)
 }

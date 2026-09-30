@@ -61,6 +61,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
+	if _, err := db.Exec(extraSchema); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("init schema: %w", err)
+	}
 	if err := migrate(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
@@ -222,7 +226,10 @@ func (s *Store) TouchHost(ctx context.Context, id string, at time.Time) error {
 
 // DeleteHost removes a host, revoking its token.
 func (s *Store) DeleteHost(ctx context.Context, id string) error {
-	return expectOne(s.db.ExecContext(ctx, `DELETE FROM hosts WHERE id = ?`, id))
+	if err := expectOne(s.db.ExecContext(ctx, `DELETE FROM hosts WHERE id = ?`, id)); err != nil {
+		return err
+	}
+	return s.DeleteHostData(ctx, id)
 }
 
 // CreateSession stores a session that expires at expires.

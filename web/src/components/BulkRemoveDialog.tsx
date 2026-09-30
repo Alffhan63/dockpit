@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -9,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { HoldButton } from '@/components/HoldButton'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 
@@ -70,9 +70,16 @@ export function BulkRemoveDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" disabled={count === 0} onClick={() => onConfirm(force)}>
-            Remove {count}
-          </AlertDialogAction>
+          <HoldButton
+            variant="destructive"
+            disabled={count === 0}
+            onConfirm={() => {
+              onConfirm(force)
+              onOpenChange(false)
+            }}
+          >
+            Hold to remove {count}
+          </HoldButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

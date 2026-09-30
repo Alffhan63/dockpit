@@ -8,6 +8,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { HostPage } from '@/pages/HostPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { LogsPage } from '@/pages/LogsPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 
 type Session = { authenticated: boolean; password_set: boolean }
 
@@ -51,9 +52,13 @@ export function App() {
     content = <LoginPage passwordSet={session.password_set} onLogin={check} />
   } else {
     content = (
-      <AppShell onLogout={logout} routeKey={route.page === 'host' ? `host/${route.hostId}` : location.hash} fill={route.page === 'logs'}>
+      <AppShell onLogout={logout} routeKey={route.page === 'host' ? `host/${route.hostId}` : route.page === 'settings' ? 'settings' : location.hash} fill={route.page === 'logs' || route.page === 'project-logs'}>
         {route.page === 'dashboard' && <DashboardPage />}
         {route.page === 'host' && <HostPage key={route.hostId} hostId={route.hostId} tab={route.tab ?? 'containers'} />}
+        {route.page === 'settings' && <SettingsPage tab={route.tab ?? 'notifications'} />}
+        {route.page === 'project-logs' && (
+          <LogsPage key={`${route.hostId}/project/${route.project}`} hostId={route.hostId} project={route.project} />
+        )}
         {route.page === 'logs' && (
           <LogsPage key={`${route.hostId}/${route.container}`} hostId={route.hostId} container={route.container} />
         )}

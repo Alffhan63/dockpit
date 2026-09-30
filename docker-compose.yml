@@ -1,0 +1,27 @@
+services:
+  dockpit:
+    build: .
+    image: dockpit-server
+    container_name: dockpit
+    restart: unless-stopped
+    # Same uid/gid as the host user "apps" so ./data stays writable by it.
+    user: "1001:1001"
+    ports:
+      - "127.0.0.1:8080:8080"   # nginx terminates TLS in front
+    environment:
+      TZ: Asia/Jakarta   # scheduled cleanup and backups run in this time zone
+      # nginx reaches the container from the Docker bridge gateway, so trust its
+      # X-Real-IP (the port is only published on 127.0.0.1, nobody else can send it).
+      COCKPIT_TRUSTED_PROXIES: 172.16.0.0/12
+    volumes:
+      - ./data:/data     # database, plus nightly copies in ./data/backups
+    read_only: true
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true

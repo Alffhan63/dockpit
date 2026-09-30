@@ -4,12 +4,14 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AddHostDialog } from '@/components/AddHostDialog'
 import { HostCard } from '@/components/HostCard'
+import { OverviewPanel } from '@/components/OverviewPanel'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { usePoll } from '@/hooks/usePoll'
 import { api } from '@/lib/api'
 
 export function DashboardPage() {
   const hosts = usePoll(api.hosts, 5000, 'hosts')
+  const overview = usePoll(api.overview, 10_000, 'overview')
   const list = hosts.data ?? []
   const online = list.filter((h) => h.online).length
 
@@ -25,6 +27,8 @@ export function DashboardPage() {
           </div>
           <AddHostDialog onAdded={hosts.refresh} />
         </div>
+
+        <OverviewPanel hosts={overview.data} loading={overview.loading && !overview.error} />
 
         {hosts.error && (
           <Alert variant="destructive">
@@ -54,7 +58,7 @@ export function DashboardPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {list.map((h) => (
-              <HostCard key={h.id} host={h} />
+              <HostCard key={h.id} host={h} overview={overview.data?.find((o) => o.id === h.id)} />
             ))}
           </div>
         )}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -9,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { HoldButton } from '@/components/HoldButton'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import type { Container } from '@/lib/api'
@@ -32,7 +32,7 @@ export function RemoveContainerDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Remove {container?.name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            The container is deleted. Its image and volumes are kept.
+            The container is deleted. Its image and volumes are kept. Press and hold the button to confirm.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {running && (
@@ -46,13 +46,16 @@ export function RemoveContainerDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          <HoldButton
             variant="destructive"
             disabled={running && !force}
-            onClick={() => container && onConfirm(container, force)}
+            onConfirm={() => {
+              if (container) onConfirm(container, force)
+              onOpenChange(false)
+            }}
           >
-            Remove
-          </AlertDialogAction>
+            Hold to remove
+          </HoldButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

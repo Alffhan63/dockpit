@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -57,14 +59,56 @@ func (l *Limiter) recent(key string, now time.Time) []time.Time {
 	return kept
 }
 
+var (
+	trustedMu      sync.RWMutex
+	trustedProxies []*net.IPNet
+)
+
+// SetTrustedProxies lists the networks (CIDR) whose X-Real-IP header is
+// believed, besides loopback. Behind Docker's port publishing, nginx reaches
+// the controller from the bridge gateway (e.g. 172.16.0.0/12), not loopback.
+func SetTrustedProxies(cidrs []string) error {
+	var nets []*net.IPNet
+	for _, c := range cidrs {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			continue
+		}
+		_, n, err := net.ParseCIDR(c)
+		if err != nil {
+			return fmt.Errorf("trusted proxy %q: %w", c, err)
+		}
+		nets = append(nets, n)
+	}
+	trustedMu.Lock()
+	trustedProxies = nets
+	trustedMu.Unlock()
+	return nil
+}
+
+func trusted(ip net.IP) bool {
+	if ip.IsLoopback() {
+		return true
+	}
+	trustedMu.RLock()
+	defer trustedMu.RUnlock()
+	for _, n := range trustedProxies {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
 // ClientIP returns the client address. X-Real-IP is trusted only when the
-// request comes from loopback, i.e. from a local reverse proxy such as nginx.
+// request comes from loopback or a configured trusted proxy network, i.e.
+// from the reverse proxy in front of the controller.
 func ClientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
 	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+	if ip := net.ParseIP(host); ip != nil && trusted(ip) {
 		if real := r.Header.Get("X-Real-IP"); net.ParseIP(real) != nil {
 			return real
 		}

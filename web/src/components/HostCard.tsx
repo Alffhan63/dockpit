@@ -3,13 +3,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePoll } from '@/hooks/usePoll'
 import { href } from '@/hooks/useRoute'
-import { api, type Host } from '@/lib/api'
+import { api, type Host, type HostOverview } from '@/lib/api'
 import { formatBytes, formatUptime, osLabel, percent, timeAgo } from '@/lib/format'
 import { IpList } from './IpList'
 import { MetricBar } from './MetricBar'
-import { HostStatusBadge } from './StatusBadge'
+import { Sparkline } from './Sparkline'
+import { HostStatusBadge, StatusBadge } from './StatusBadge'
 
-export function HostCard({ host }: { host: Host }) {
+export function HostCard({ host, overview }: { host: Host; overview?: HostOverview }) {
   const status = usePoll(() => api.hostStatus(host.id), 5000, host.online ? host.id : null)
   const m = status.data?.metrics
   const d = status.data?.docker
@@ -46,7 +47,12 @@ export function HostCard({ host }: { host: Host }) {
             </>
           ) : (
             <>
-              <MetricBar label="CPU" value={m.cpu_percent} detail={`${m.cpu_cores} cores`} />
+              <div className="flex items-end gap-3">
+                <div className="min-w-0 flex-1">
+                  <MetricBar label="CPU" value={m.cpu_percent} detail={`${m.cpu_cores} cores`} />
+                </div>
+                <Sparkline values={overview?.spark ?? []} width={64} height={24} />
+              </div>
               <MetricBar
                 label="Memory"
                 value={percent(m.mem_used, m.mem_total)}
@@ -68,6 +74,11 @@ export function HostCard({ host }: { host: Host }) {
               <Boxes className="size-4" />
               <span className="font-medium text-foreground tabular-nums">{d.running}</span> / {d.containers} running
             </span>
+            {overview && overview.problems.length > 0 && (
+              <StatusBadge tone="red">
+                {overview.problems.length} issue{overview.problems.length === 1 ? '' : 's'}
+              </StatusBadge>
+            )}
             <span className="ml-auto flex items-center gap-1.5">
               <Clock className="size-4" /> up {formatUptime(m.uptime_seconds)}
             </span>

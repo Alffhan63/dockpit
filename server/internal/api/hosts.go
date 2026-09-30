@@ -98,6 +98,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logger.Info("host registered", "host", h.ID)
+	s.audit(r, "hosts.create", h.ID, h.Name, "")
 	writeJSON(w, http.StatusCreated, map[string]any{"host": s.view(h, nil), "token": token})
 }
 
@@ -112,6 +113,7 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) {
 	}
 	s.registry.Disconnect(h.ID)
 	s.logger.Info("host removed", "host", h.ID)
+	s.audit(r, "hosts.delete", h.ID, h.Name, "")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -128,6 +130,7 @@ func (s *Server) rotateToken(w http.ResponseWriter, r *http.Request) {
 	// The connected agent used the old token; make it reconnect.
 	s.registry.Disconnect(h.ID)
 	s.logger.Info("host token rotated", "host", h.ID)
+	s.audit(r, "hosts.token", h.ID, h.Name, "")
 	writeJSON(w, http.StatusOK, map[string]string{"token": token})
 }
 

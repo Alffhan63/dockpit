@@ -23,7 +23,8 @@ const (
 
 // Client talks to the Docker Engine API on a unix socket.
 type Client struct {
-	http *http.Client
+	http   *http.Client
+	extras extraCache
 }
 
 // New returns a client that connects to the socket returned by socketPath.
@@ -101,8 +102,10 @@ func (c *Client) ListContainers(ctx context.Context, all bool) ([]protocol.Conta
 			ComposeProject: rc.Labels[composeProjectLabel],
 			ComposeService: rc.Labels[composeServiceLabel],
 			ComposeDir:     rc.Labels[composeDirLabel],
+			Health:         healthFromStatus(rc.Status),
 		})
 	}
+	c.enrich(ctx, raw, out)
 	return out, nil
 }
 

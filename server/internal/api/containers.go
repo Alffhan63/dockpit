@@ -90,5 +90,13 @@ func (s *Server) callContainer(w http.ResponseWriter, r *http.Request, method st
 		return
 	}
 	s.logger.Info("container action", "host", hostID, "container", ref, "method", method, "force", force)
+	if s.mon != nil {
+		s.mon.Expect(hostID, ref)
+	}
+	detail := ""
+	if force {
+		detail = "force"
+	}
+	s.audit(r, method, hostID, ref, detail)
 	w.WriteHeader(http.StatusNoContent)
 }

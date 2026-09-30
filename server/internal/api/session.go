@@ -76,6 +76,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Password string `json:"password"`
+		Code     string `json:"code"`
 	}
 	if !readJSON(w, r, &req) {
 		return
@@ -92,8 +93,27 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if !auth.CheckPassword(hash, req.Password) {
 		s.logins.Fail(ip, now)
 		s.logger.Warn("login failed", "remote", ip)
+		s.audit(r, "auth.login.failed", "", "", "wrong password")
 		writeError(w, http.StatusUnauthorized, "wrong password")
 		return
+	}
+
+	// Second factor. Asking for the code is not a failed attempt.
+	if secret, err := s.totpSecret(r); err != nil {
+		s.internalError(w, "read 2fa secret", err)
+		return
+	} else if secret != "" {
+		if req.Code == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "enter the code from your authenticator app", "totp_required": true})
+			return
+		}
+		if !s.checkTOTP(r, secret, req.Code) {
+			s.logins.Fail(ip, now)
+			s.logger.Warn("login 2fa failed", "remote", ip)
+			s.audit(r, "auth.login.failed", "", "", "wrong 2fa code")
+			writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "wrong code", "totp_required": true})
+			return
+		}
 	}
 	s.logins.Reset(ip)
 
@@ -116,6 +136,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 	s.logger.Info("login", "remote", ip)
+	s.audit(r, "auth.login", "", "", "")
 	w.WriteHeader(http.StatusNoContent)
 }
 

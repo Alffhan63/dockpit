@@ -2,6 +2,7 @@
 //
 //	cockpit-server                 run the controller (same as "serve")
 //	cockpit-server passwd          set the dashboard admin password
+//	cockpit-server 2fa-reset       turn off two-factor authentication
 //	cockpit-server host add NAME   register a host and print its agent token
 //	cockpit-server host list       list hosts
 //	cockpit-server host token ID   issue a new token for a host
@@ -18,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -27,6 +29,7 @@ import (
 	"dockpit/server/internal/api"
 	"dockpit/server/internal/auth"
 	"dockpit/server/internal/hosts"
+	"dockpit/server/internal/monitor"
 	"dockpit/server/internal/storage"
 	"dockpit/server/internal/webui"
 )
@@ -38,6 +41,7 @@ const usage = `usage:
   cockpit-server [serve]          run the controller
   cockpit-server passwd           set the dashboard admin password (reads stdin)
   cockpit-server passwd -check    exit 1 if no admin password is set
+  cockpit-server 2fa-reset        turn off two-factor authentication (lost phone)
   cockpit-server host add NAME    register a host and print its agent token
   cockpit-server host list        list hosts
   cockpit-server host token ID    issue a new agent token for a host
@@ -47,6 +51,8 @@ environment:
   COCKPIT_DB       database path (default cockpit.db)
   COCKPIT_LISTEN   listen address (default 127.0.0.1:8080)
   COCKPIT_WEB_DIR  serve the web UI from this directory instead of the embedded one
+  COCKPIT_TRUSTED_PROXIES  comma-separated CIDRs whose X-Real-IP is trusted besides
+                   loopback (Docker: the bridge network, e.g. 172.16.0.0/12)
 `
 
 func main() {
@@ -81,6 +87,18 @@ func run(logger *slog.Logger, args []string) error {
 			return passwdCheck(store)
 		}
 		return passwd(store)
+	case "2fa-reset":
+		ctx := context.Background()
+		for _, k := range []string{"totp_secret", "totp_pending", "totp_last_step"} {
+			if err := store.DeleteSetting(ctx, k); err != nil {
+				return err
+			}
+		}
+		if err := store.DeleteAllSessions(ctx); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "two-factor authentication is off; all sessions ended")
+		return nil
 	case "host":
 		return hostCmd(store, args)
 	default:
@@ -93,6 +111,10 @@ func serve(logger *slog.Logger, store *storage.Store) error {
 	listen := envOr("COCKPIT_LISTEN", "127.0.0.1:8080")
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	if err := auth.SetTrustedProxies(strings.Split(os.Getenv("COCKPIT_TRUSTED_PROXIES"), ",")); err != nil {
+		return err
+	}
 
 	if hash, err := store.AdminPasswordHash(ctx); err != nil {
 		return err
@@ -107,7 +129,12 @@ func serve(logger *slog.Logger, store *storage.Store) error {
 		logger.Info("serving web UI", "from", source)
 	}
 
-	srv := api.New(store, hosts.NewRegistry(), logger, web)
+	registry := hosts.NewRegistry()
+	mon := monitor.New(store, registry, logger, filepath.Join(filepath.Dir(envOr("COCKPIT_DB", "cockpit.db")), "backups"))
+	go mon.Run(ctx)
+
+	srv := api.New(store, registry, logger, web)
+	srv.SetMonitor(mon)
 	httpServer := &http.Server{
 		Addr:              listen,
 		Handler:           srv.Handler(),
